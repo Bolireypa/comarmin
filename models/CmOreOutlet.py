@@ -1,6 +1,6 @@
 import uuid
 from sqlalchemy import or_, and_, desc, text, func
-from sqlalchemy.dialects.postgresql import JSONB, UUID, BIGINT
+from sqlalchemy.dialects.postgresql import JSONB, UUID, BIGINT, ARRAY
 from sqlalchemy.exc import IntegrityError
 from models.database import db
 from datetime import datetime
@@ -21,7 +21,8 @@ class CmOreOutlet(db.Model):
     quantity = db.Column(db.Integer, nullable=False)
     weight = db.Column(db.Float, nullable=False)
     material_type = db.Column(db.Text, nullable=False)
-    minerals = db.Column(db.Text, nullable=False)
+    # minerals = db.Column(db.Text, nullable=False)
+    minerals = db.Column(ARRAY(db.String), nullable=True)
     state = db.Column(db.Boolean, nullable = False, default=True)
     created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
@@ -240,4 +241,52 @@ class CmOreOutlet(db.Model):
         except Exception as e:
             db.session.rollback()
             print("Error in delete")
+            raise Exception(e)
+
+    def getMineralstByDay(date):
+        try:
+            return db.session.query(func.unnest(CmOreOutlet.minerals).label("outlet_minerals"), func.count(CmOreOutlet.minerals)).filter(CmOreOutlet.date == date).group_by("outlet_minerals").all()
+        except Exception as e:
+            db.session.rollback()
+            print("Error in get ore outlet by day")
+            raise Exception(e)
+    
+    def getMineralstByMonth(date1, date2):
+        try:
+            return db.session.query(func.unnest(CmOreOutlet.minerals).label("outlet_minerals"), func.count(CmOreOutlet.minerals)).filter(CmOreOutlet.date >= date1, CmOreOutlet.date < date2).group_by("outlet_minerals").all()
+        except Exception as e:
+            db.session.rollback()
+            print("Error in get ore outlet by month")
+            raise Exception(e)
+
+    def comparativePerDay(date1, date2):
+        try:
+            return db.session.query(CmOreOutlet.date, func.count(CmOreOutlet.date)).filter(CmOreOutlet.date >= date1, CmOreOutlet.date <= date2).group_by(CmOreOutlet.date).order_by(CmOreOutlet.date).all()
+        except Exception as e:
+            db.session.rollback()
+            print("Error in comparative by day")
+            raise Exception(e)
+
+    def comparativePerMonth(date1, date2):
+        try:
+            return db.session.query(func.date_trunc("month", CmOreOutlet.date).label("month"), func.count(CmOreOutlet.date)).filter(CmOreOutlet.date >= date1, CmOreOutlet.date < date2).group_by("month").order_by("month").all()
+        except Exception as e:
+            db.session.rollback()
+            print("Error in comparative by month")
+            raise Exception(e)
+
+    def weightPerDay(date1, date2):
+        try:
+            return db.session.query(CmOreOutlet.date, func.sum(CmOreOutlet.weight)).filter(CmOreOutlet.date >= date1, CmOreOutlet.date <= date2).group_by(CmOreOutlet.date).order_by(CmOreOutlet.date).all()
+        except Exception as e:
+            db.session.rollback()
+            print("Error in weight by day")
+            raise Exception(e)
+
+    def weightPerMonth(date1, date2):
+        try:
+            return db.session.query(func.date_trunc("month", CmOreOutlet.date).label("month"), func.sum(CmOreOutlet.weight)).filter(CmOreOutlet.date >= date1, CmOreOutlet.date < date2).group_by("month").order_by("month").all()
+        except Exception as e:
+            db.session.rollback()
+            print("Error in weight by month")
             raise Exception(e)

@@ -5,7 +5,8 @@ from models import CmPartner, CmCompany, CmOreOutlet, CmDriver, CmVehicle
 
 from flask_jwt_extended import jwt_required
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, date
+from dateutil.relativedelta import relativedelta
 
 # partner = api.model('Partner', {
 #     'name': fields.String(required=True, description='Partner name'),
@@ -412,26 +413,30 @@ class AdminOutletChartReports(Resource):
               for c in allComp:
 
                 query_outlets = CmOreOutlet.CmOreOutlet.outletByCompanyAndDate(c._id(),min_date,max_date)
-                result_array = [[],[]]
-                for q in query_outlets:
-                  result_array[0].append(q[0].strftime("%Y-%m-%d"))
-                  result_array[1].append(q[1])
-                d = []
-                for t in total_days:
-                  # str_total_days.append(t.strftime("%Y-%m-%d"))
-                  if t.strftime("%Y-%m-%d") in result_array[0]:
-                    d.append(result_array[1][result_array[0].index(t.strftime("%Y-%m-%d"))])
-                    # print(result_array[0].index(t.strftime("%Y-%m-%d")))
-                  else:
-                    d.append(0)
-                # print(d)
-                datasets.append({
-                  "label": c.name,
-                  "data": d,
-                  "fill": False,
-                  "borderColor": 'rgb(75, 192, 192)',
-                  "tension": 0.5
-                })
+                if query_outlets:
+                  # print("data comp========")
+                # else:
+                #   print("no data comp=========")
+                  result_array = [[],[]]
+                  for q in query_outlets:
+                    result_array[0].append(q[0].strftime("%Y-%m-%d"))
+                    result_array[1].append(q[1])
+                  d = []
+                  for t in total_days:
+                    # str_total_days.append(t.strftime("%Y-%m-%d"))
+                    if t.strftime("%Y-%m-%d") in result_array[0]:
+                      d.append(result_array[1][result_array[0].index(t.strftime("%Y-%m-%d"))])
+                      # print(result_array[0].index(t.strftime("%Y-%m-%d")))
+                    else:
+                      d.append(0)
+                  # print(d)
+                  datasets.append({
+                    "label": c.name,
+                    "data": d,
+                    "fill": False,
+                    "borderColor": 'rgb(75, 192, 192)',
+                    "tension": 0.5
+                  })
                 title = 'Salidas de mineral - Empresa'
             
             if filters["getBy"] == "partner":
@@ -439,26 +444,27 @@ class AdminOutletChartReports(Resource):
               for c in allPart:
 
                 query_outlets = CmOreOutlet.CmOreOutlet.outletByPartnerAndDate(c._id(),min_date,max_date)
-                result_array = [[],[]]
-                for q in query_outlets:
-                  result_array[0].append(q[0].strftime("%Y-%m-%d"))
-                  result_array[1].append(q[1])
-                d = []
-                for t in total_days:
-                  # str_total_days.append(t.strftime("%Y-%m-%d"))
-                  if t.strftime("%Y-%m-%d") in result_array[0]:
-                    d.append(result_array[1][result_array[0].index(t.strftime("%Y-%m-%d"))])
-                    # print(result_array[0].index(t.strftime("%Y-%m-%d")))
-                  else:
-                    d.append(0)
-                # print(d)
-                datasets.append({
-                  "label": c.name,
-                  "data": d,
-                  "fill": False,
-                  "borderColor": 'rgb(75, 192, 192)',
-                  "tension": 0.5
-                })
+                if query_outlets:
+                  result_array = [[],[]]
+                  for q in query_outlets:
+                    result_array[0].append(q[0].strftime("%Y-%m-%d"))
+                    result_array[1].append(q[1])
+                  d = []
+                  for t in total_days:
+                    # str_total_days.append(t.strftime("%Y-%m-%d"))
+                    if t.strftime("%Y-%m-%d") in result_array[0]:
+                      d.append(result_array[1][result_array[0].index(t.strftime("%Y-%m-%d"))])
+                      # print(result_array[0].index(t.strftime("%Y-%m-%d")))
+                    else:
+                      d.append(0)
+                  # print(d)
+                  datasets.append({
+                    "label": c.name,
+                    "data": d,
+                    "fill": False,
+                    "borderColor": 'rgb(75, 192, 192)',
+                    "tension": 0.5
+                  })
                 title = 'Salidas de mineral - Socio'
 
             if filters["getBy"] == "outlet":
@@ -852,3 +858,156 @@ class AdminOutletSearchCompany(Resource):
     #         res["success"] = False
     #         res["msg"] = "Algo salió mal al agregar al socio: {0}. Por favor inténtelo nuevamente".format(e)
     #         return res, 500
+
+parserDayMonth = api.parser()
+# parserDayMonth.add_argument("date1", type=inputs.datetime_from_iso8601, required=True, help="Max value is the current date. Example: 2020-06-10")
+# parserDayMonth.add_argument("date2", type=inputs.datetime_from_iso8601, required=True, help="Max value is the current date. Example: 2020-07-01")
+parserDayMonth.add_argument("filter", type=str, required=False, help="Filter report by day or month")
+
+@api.route('/day_month')
+class AdminDayMonthReports(Resource):
+    @api.response(500, "Internal error")
+    @api.response(200, "Success")
+    @api.response(404, "Not found")
+    @api.response(400, "Bad request")
+    # @api.doc(security="CmApiKey")
+    @api.expect(parserDayMonth, validate=True)
+    # @jwt_required()
+    def get(self):
+        '''Get ore outlet by day or month'''
+        try:
+            res = { "success": False }
+            filters = parserDayMonth.parse_args()
+            # print(filters["filter"])
+            now = date.today()
+            reportDate = {}
+            mineralsData = {}
+            mineralsData["labels"] = []
+            mineralsData["data"] = []
+            comparativeData = {}
+            comparativeData["labels"] = []
+            comparativeData["data"] = []
+            weightData = {}
+            weightData["labels"] = []
+            weightData["data"] = []
+            if filters["filter"] == "day":
+              reportDate["day"] = now.strftime("%Y-%m-%d")
+              mineralsByDay = CmOreOutlet.CmOreOutlet.getMineralstByDay(reportDate["day"])
+              # mineralsByDay = CmOreOutlet.CmOreOutlet.getMineralstByDay("2022-03-08")
+              print(mineralsByDay)
+              for m in mineralsByDay:
+                mineralsData["labels"].append(m[0])
+                mineralsData["data"].append(m[1])
+              
+              previousDay = now - timedelta(days=1)
+              reportDate["previousDay"] = previousDay.strftime("%Y-%m-%d")
+              comparativeByDay = CmOreOutlet.CmOreOutlet.comparativePerDay(reportDate["previousDay"], reportDate["day"])
+              # comparativeByDay = CmOreOutlet.CmOreOutlet.comparativePerDay("2022-06-28", "2022-06-29")
+              print(comparativeByDay)
+              for c in comparativeByDay:
+                comparativeData["labels"].append(c[0].strftime("%Y-%m-%d"))
+                comparativeData["data"].append(c[1])
+              
+              weightByDay = CmOreOutlet.CmOreOutlet.weightPerDay(reportDate["previousDay"], reportDate["day"])
+              # weightByDay = CmOreOutlet.CmOreOutlet.weightPerDay("2022-03-08")
+              print(weightByDay)
+              for w in weightByDay:
+                weightData["labels"].append(w[0].strftime("%Y-%m-%d"))
+                weightData["data"].append(w[1])
+              # weightData["total"] = weightByDay[0]
+
+              # if mineralsByDay:
+              #   print("there are minerals")
+              # else:
+              #   print("there arent minerals")
+            else:
+              # print(now.year)
+              reportDate["date1"] = datetime(now.year, now.month, 1).strftime("%Y-%m-%d")
+              date1 = datetime(now.year, now.month, 1)
+              date2 = date1 + relativedelta(months=+1)
+              reportDate["date2"] = date2.strftime("%Y-%m-%d")
+              mineralsByMonth = CmOreOutlet.CmOreOutlet.getMineralstByMonth(reportDate["date1"], reportDate["date2"])
+              # mineralsByMonth = CmOreOutlet.CmOreOutlet.getMineralstByMonth("2022-04-01", "2022-05-01")
+              print(mineralsByMonth)
+              for m in mineralsByMonth:
+                mineralsData["labels"].append(m[0])
+                mineralsData["data"].append(m[1])
+
+              previousMonth = datetime(now.year, now.month, 1) + relativedelta(months=-1)
+              reportDate["previousMonth"] = previousMonth.strftime("%Y-%m-%d")
+              currentMonth = datetime(now.year, now.month, 1) + relativedelta(months=+1)
+              reportDate["currentMonth"] = currentMonth.strftime("%Y-%m-%d")
+              comparativeByMonth = CmOreOutlet.CmOreOutlet.comparativePerMonth(reportDate["previousMonth"], reportDate["currentMonth"])
+              # comparativeByMonth = CmOreOutlet.CmOreOutlet.comparativePerMonth("2022-03-01", "2022-05-01")
+              print(comparativeByMonth)
+              for c in comparativeByMonth:
+                comparativeData["labels"].append(c[0].strftime("%B"))
+                comparativeData["data"].append(c[1])
+
+              weightByMonth = CmOreOutlet.CmOreOutlet.weightPerMonth(reportDate["previousMonth"], reportDate["currentMonth"])
+              # weightByMonth = CmOreOutlet.CmOreOutlet.weightPerMonth("2022-04-01", "2022-05-01")
+              print(weightByMonth)
+              for w in weightByMonth:
+                weightData["labels"].append(w[0].strftime("%B"))
+                weightData["data"].append(w[1])
+              # weightData["total"] = weightByMonth[0]
+              
+            # test = date.year
+            # company = CmCompany.CmCompany.getById(filters["filter"])
+            # if not company:
+            #   return res, 404
+            # data = {
+            #   "id": company._id(),
+            #   "name": company.name,
+            #   "city": company.city,
+            #   "phone": company.phone,
+            #   "nit": company.nit,
+            #   "outlets": []
+            # }
+            # min_date = ''
+            # max_date = ''
+            # if (filters["date1"] < filters["date2"]):
+            #   print("date1 < date2")
+            #   min_date = filters["date1"]
+            #   max_date = filters["date2"]
+            # if (filters["date1"] > filters["date2"]):
+            #   print("date1 > date2")
+            #   max_date = filters["date1"]
+            #   min_date = filters["date2"]
+            # if (filters["date1"] == filters["date2"]):
+            #   print("date1 = date2")
+            #   min_date = filters["date1"]
+            #   max_date = filters["date2"]
+            # # print(min_date, max_date)
+            # outlet_company = CmOreOutlet.CmOreOutlet.oreOutletByCompany(filters["companyId"],min_date,max_date)
+            # print(outlet_company)
+            # for oc in outlet_company:
+            #   outlet_partner = CmPartner.CmPartner.getById(oc.cm_partner_id)
+            #   old = CmDriver.CmDriver.getById(oc.cm_driver_id)
+            #   olv = CmVehicle.CmVehicle.getById(oc.cm_vehicle_id)
+              
+            #   data["outlets"].append({
+            #     "id": oc._id(),
+            #     'date': oc.date.strftime("%Y-%m-%d"),
+            #     'number': oc.number,
+            #     'section': oc.section,
+            #     'quantity': oc.quantity,
+            #     'weight': oc.weight,
+            #     'materialType': oc.material_type,
+            #     'minerals': oc.minerals,
+            #     'partner': outlet_partner.name + ' ' + outlet_partner.lastname,
+            #     'driver': old.name + ' ' + old.lastname,
+            #     'vehicle': olv.license_plate
+            #   })
+            # # print(data)
+            res["mineralsData"] = mineralsData
+            res["comparativeData"] = comparativeData
+            res["weightData"] = weightData
+            res["test"] = reportDate
+            res["success"] = True
+            return res, 200
+        except Exception as e:
+          print(e)
+          res["success"] = False
+          res["msg"] = "Algio salió mal al obtener el reporte"
+          return res, 500

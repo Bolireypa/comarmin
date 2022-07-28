@@ -29,8 +29,8 @@ def createInitialData():
 
 def create_default_database():
     ## create db if not exists 
-    if not database_exists(getenv("DATABASE_URI")):
-        create_database(getenv("DATABASE_URI"))
+    if not database_exists(getenv("DATABASE_URI_DEV")):
+        create_database(getenv("DATABASE_URI_DEV"))
     ## create bugs db
     # if not database_exists(getenv("DATABASE_QA_URI")):
         # create_database(getenv("DATABASE_QA_URI"))
