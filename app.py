@@ -38,8 +38,8 @@ def create_app():
     app = Flask(__name__)
 
     app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
-    # app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://icxemeigeagsjp:6f565e2f9b3e3e5c30cc7bc5c6a25ebaac4940915bc4f7897625593984fcefe3@ec2-34-237-46-61.compute-1.amazonaws.com:5432/db4jm1voqc1lnq'
-    app.config['SQLALCHEMY_DATABASE_URI'] = getenv("DATABASE_URI_DEV")
+    app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://icxemeigeagsjp:6f565e2f9b3e3e5c30cc7bc5c6a25ebaac4940915bc4f7897625593984fcefe3@ec2-34-237-46-61.compute-1.amazonaws.com:5432/db4jm1voqc1lnq'
+    # app.config['SQLALCHEMY_DATABASE_URI'] = getenv("DATABASE_URI_DEV")
 
     app.config["JWT_SECRET_KEY"] = getenv("JWT_KEY")
     app.config["JWT_ACCESS_TOKEN_EXPIRES"] = False
